@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import argparse
 import json
-import urllib2
+import urllib3
 import os
 import subprocess
 import re
@@ -18,27 +18,28 @@ parser.set_defaults(forks=False)
 args = parser.parse_args()
 
 os.chdir(args.directory)
-f = urllib2.urlopen("https://api.github.com/users/%s/repos" % args.user)
-repo_list = json.loads(f.read())
+http = urllib3.PoolManager()
+f = http.request("GET", "https://api.github.com/users/%s/repos" % args.user)
+repo_list = json.loads(f.data)
 
 for repo in repo_list:
     name, url = repo["name"], repo["clone_url"]
     if re.search("[^A-z0-9-_]", name):
-        print "Skipping invalid name", name
+        print("Skipping invalid name", name)
         continue
     if re.search("[^A-z0-9-_:/.]", url):
-        print "Skipping invalid url", url
+        print ("Skipping invalid url", url)
         continue
     if repo["private"]:
-        print "Skipping private repo", name
+        print ("Skipping private repo", name)
         continue
     if repo["fork"] and not args.forks:
-        print "Skipping forked repo", name
+        print ("Skipping forked repo", name)
         continue
     if not os.path.exists(name):
-        print "New repo", name
+        print("New repo", name)
         subprocess.check_output(["git", "clone", "--mirror", url, name], stderr=subprocess.STDOUT)
     os.chdir(name)
-    print "Updating", name
+    print("Updating", name)
     subprocess.check_output(["git", "remote", "update"])
     os.chdir("..")
